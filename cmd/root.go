@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"runtime/debug"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mrusme/neonmodem/config"
@@ -20,8 +21,22 @@ var EMBEDFS *embed.FS
 var LOG *zap.SugaredLogger
 var CFG config.Config
 
+func version() string {
+	if config.VERSION != "" {
+		return config.VERSION
+	}
+
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" {
+		return bi.Main.Version
+	}
+
+	return "unknown"
+}
+
 func init() {
 	cobra.OnInitialize(load)
+	rootCmd.Version = version()
+	rootCmd.SetVersionTemplate("neonmodem {{.Version}}\n")
 	rootCmd.
 		PersistentFlags().
 		Bool(
@@ -118,14 +133,11 @@ var rootCmd = &cobra.Command{
 		"in Go, supporting Discourse and Lemmy.\n" +
 		"More info available on https://xn--gckvb8fzb.com/projects/neonmodem",
 	Run: func(cmd *cobra.Command, args []string) {
-		var err error
-
 		c := ctx.New(EMBEDFS, &CFG, LOG)
 		_ = loadSystems(&c)
 
 		tui := tea.NewProgram(ui.NewModel(&c), tea.WithAltScreen())
-		err = tui.Start()
-		if err != nil {
+		if _, err := tui.Run(); err != nil {
 			panic(err)
 		}
 	},
